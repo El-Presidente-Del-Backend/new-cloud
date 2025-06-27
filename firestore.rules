@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Reglas temporales para desarrollo - MÁS PERMISIVAS
+    // IMPORTANTE: Cambiar a reglas más restrictivas antes de producción
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Las siguientes reglas son más seguras y deberían usarse en producción
+    // Descomentar estas reglas y eliminar la regla anterior para producción
+    
+    /*
+    // Función para verificar si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Función para verificar si el usuario es el propietario del documento
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Permitir acceso a los datos del usuario autenticado
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+      
+      // Permitir acceso a las subcollecciones del usuario
+      match /{collection}/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Permitir crear usuarios temporales para compartir
+    match /users/{userId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+    }
+    
+    // Permitir escribir en sharedWithMe de cualquier usuario si estás autenticado
+    match /users/{recipientId}/sharedWithMe/{shareId} {
+      allow read: if isOwner(recipientId);
+      allow create, update: if isAuthenticated();
+    }
+    
+    // Permitir escribir en sharedByMe de tu propio usuario
+    match /users/{ownerId}/sharedByMe/{shareId} {
+      allow read, write: if isOwner(ownerId);
+    }
+    */
+  }
+}
