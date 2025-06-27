@@ -1,6 +1,9 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { onAuthStateChanged } from "firebase/auth"
+import { auth } from "../firebase/firebaseConfig"
+import { useRouter } from "next/navigation"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -37,7 +40,6 @@ import {
   Video,
   LogOut,
 } from "lucide-react"
-import { useRouter } from "next/navigation"
 
 interface FileItem {
   id: string
@@ -67,9 +69,23 @@ const mockFiles: FileItem[] = [
 ]
 
 export default function DashboardPage() {
+  const [user, setUser] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<"list" | "grid">("list")
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const router = useRouter()
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      if (!currentUser) {
+        router.push("/login") // Redirige si no está autenticado
+      } else {
+        setUser(currentUser)
+        setLoading(false)
+      }
+    })
+    return () => unsubscribe()
+  }, [router])
 
   const getFileIcon = (item: FileItem) => {
     if (item.type === "folder") return <Folder className="w-5 h-5 text-blue-500" />
@@ -93,6 +109,14 @@ export default function DashboardPage() {
   const handleLogout = () => {
     // Simular logout
     router.push("/")
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <span className="text-lg">Cargando...</span>
+      </div>
+    )
   }
 
   return (
