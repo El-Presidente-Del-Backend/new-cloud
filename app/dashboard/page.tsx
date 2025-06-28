@@ -22,24 +22,10 @@ import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "../hooks/use-toast"
 import {
-  Cloud,
-  Download,
-  File,
-  FileText,
-  Folder,
-  Grid3X3,
-  Home,
-  ImageIcon,
-  List,
-  MoreHorizontal,
-  Search,
-  Settings,
-  Share2,
-  Trash2,
-  Users,
-  Video,
-  LogOut,
-  FolderPlus,
+  Cloud, Home, Users, Share2, Menu, ChevronDown, LogOut, 
+  Search, Upload, FolderPlus, List, Grid3X3, MoreHorizontal,
+  Download, Trash2, FolderOpen, Folder, ExternalLink,
+  FileText, File, Image as ImageIcon, Video
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useFolders } from "../hooks/use-folders"
@@ -51,6 +37,8 @@ import { formatFileSize, formatDate } from "../utils/file-utils"
 import { UploadForm } from "@/components/ui/upload-form"
 import { ShareModal } from "@/components/ui/share-modal"
 import { useStorageUsage } from "../hooks/use-storage-usage"
+import { useRecentFiles } from "../hooks/use-recent-files"
+import { accessFile } from "../services/file-service"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -106,6 +94,38 @@ export default function DashboardPage() {
   const { files, loading: loadingFiles } = useFiles(user, selectedFolderId)
   const { sharedFiles, loading: loadingShared } = useSharedWithMe(user)
   const { usedStorage, totalStorage, usedPercentage, loading: loadingStorage } = useStorageUsage(user)
+  const { recentFiles, loading: loadingRecentFiles } = useRecentFiles(user)
+
+  // Función para manejar el clic en un archivo reciente
+  const handleRecentFileClick = async (file: any) => {
+    if (file.folderId) {
+      setSelectedFolderId(file.folderId)
+    }
+    
+    // Registrar acceso
+    await accessFile(file, user)
+    
+    // Abrir o descargar el archivo
+    window.open(file.url, "_blank")
+  }
+
+  // Función para manejar la apertura/descarga de un archivo
+  const handleOpenFile = async (file: any) => {
+    try {
+      // Registrar el acceso al archivo
+      await accessFile(file, user)
+      
+      // Abrir el archivo en una nueva pestaña
+      window.open(file.url, "_blank")
+    } catch (error) {
+      console.error("Error al abrir archivo:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo abrir el archivo",
+        variant: "destructive",
+      })
+    }
+  }
 
   // Filtrado y ordenamiento de archivos
   const filteredAndSortedFiles = useMemo(() => {
@@ -307,41 +327,27 @@ export default function DashboardPage() {
     setShowShareModal(false)
   }
 
-  const handleDownloadFile = (file: any) => {
+  const handleDownloadFile = async (file: any) => {
     try {
-      // Obtener la URL del archivo
-      const fileUrl = file.url;
+      // Registrar el acceso al archivo
+      await accessFile(file, user)
       
-      if (!fileUrl) {
-        toast({
-          title: "Error",
-          description: "No se pudo obtener la URL del archivo",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // Crear un elemento <a> temporal para la descarga
-      const link = document.createElement("a");
-      link.href = fileUrl;
-      link.download = file.name || file.fileName || "archivo";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Éxito",
-        description: "Descarga iniciada",
-      });
+      // Crear un enlace temporal para la descarga
+      const link = document.createElement("a")
+      link.href = file.url
+      link.download = file.name || "download"
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
     } catch (error) {
-      console.error("Error al descargar archivo:", error);
+      console.error("Error al descargar archivo:", error)
       toast({
         title: "Error",
         description: "No se pudo descargar el archivo",
         variant: "destructive",
-      });
+      })
     }
-  };
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -376,10 +382,6 @@ export default function DashboardPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Settings className="w-4 h-4 mr-2" />
-                  Configuración
-                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleLogout}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Cerrar Sesión
@@ -632,9 +634,18 @@ export default function DashboardPage() {
                   className={`grid grid-cols-12 gap-4 p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${
                     selectedFiles.includes(file.id) ? "bg-blue-50" : ""
                   }`}
-                  onClick={() => toggleFileSelection(file.id)}
+                  onClick={(e) => {
+                    // Si se hace clic en el nombre del archivo, abrirlo
+                    if ((e.target as HTMLElement).closest('.file-name-cell')) {
+                      e.stopPropagation()
+                      handleOpenFile(file)
+                    } else {
+                      // De lo contrario, seleccionarlo
+                      toggleFileSelection(file.id)
+                    }
+                  }}
                 >
-                  <div className="col-span-6 flex items-center gap-3">
+                  <div className="col-span-6 flex items-center gap-3 file-name-cell">
                     {getFileIcon(file)}
                     <span className="font-medium text-gray-900">{file.name || file.fileName}</span>
                     {file.isShared && (
@@ -653,7 +664,17 @@ export default function DashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownloadFile(file)}>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          handleOpenFile(file)
+                        }}>
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Abrir
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownloadFile(file)
+                        }}>
                           <Download className="w-4 h-4 mr-2" />
                           Descargar
                         </DropdownMenuItem>
@@ -682,15 +703,24 @@ export default function DashboardPage() {
                   className={`cursor-pointer hover:shadow-md transition-shadow ${
                     selectedFiles.includes(file.id) ? "ring-2 ring-blue-500" : ""
                   }`}
-                  onClick={() => toggleFileSelection(file.id)}
+                  onClick={(e) => {
+                    // Si se hace clic en el nombre o icono del archivo, abrirlo
+                    if ((e.target as HTMLElement).closest('.file-preview')) {
+                      e.stopPropagation()
+                      handleOpenFile(file)
+                    } else {
+                      // De lo contrario, seleccionarlo
+                      toggleFileSelection(file.id)
+                    }
+                  }}
                 >
                   <CardContent className="p-4">
-                    <div className="flex flex-col items-center text-center space-y-2">
-                      <div className="w-12 h-12 flex items-center justify-center">{getFileIcon(file)}</div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900 truncate w-full">
-                          {file.name || file.fileName}
-                        </p>
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="w-16 h-16 flex items-center justify-center file-preview">
+                        {getFileIcon(file)}
+                      </div>
+                      <div className="text-center space-y-1 w-full">
+                        <p className="text-sm font-medium text-gray-900 truncate file-preview">{file.name || file.fileName}</p>
                         <p className="text-xs text-gray-500">{file.size ? formatFileSize(file.size) : "—"}</p>
                         <p className="text-xs text-gray-400">{formatDate(file.createdAt)}</p>
                         {file.isShared && (
@@ -707,6 +737,43 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
+
+      {/* Sección de archivos recientes - solo mostrar en la pestaña "my-files" */}
+      {activeTab === "my-files" && (
+        <div className="mb-8">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Archivos recientes</h3>
+          
+          {loadingRecentFiles ? (
+            <div className="text-sm text-gray-500">Cargando archivos recientes...</div>
+          ) : recentFiles.length === 0 ? (
+            <div className="text-sm text-gray-500">No hay archivos recientes</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+              {recentFiles.slice(0, 5).map((file) => (
+                <Card 
+                  key={file.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleRecentFileClick(file)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 flex items-center justify-center">
+                        {getFileIcon(file)}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {formatFileSize(file.size)} • {new Date(file.accessedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Share Modal */}
       <ShareModal

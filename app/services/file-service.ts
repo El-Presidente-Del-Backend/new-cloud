@@ -2,6 +2,7 @@ import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage
 import { doc, collection, deleteDoc, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore"
 import { storage, db } from "../firebase/firebaseConfig"
 import { getFileTypeFromName } from "../utils/file-utils"
+import { addToRecentFiles, removeFromRecentFiles } from "./recent-files-service"
 
 const SUCCESS_MESSAGES = {
   DELETE: "Archivo eliminado con éxito",
@@ -67,16 +68,34 @@ const completeFileUpload = async (file: File, finalName: string, user: any, sele
   }
 }
 
+export const accessFile = async (file: any, user: any) => {
+  if (!file || !user) return file
+  
+  try {
+    // Registrar el acceso en la base de datos de archivos recientes
+    await addToRecentFiles(user.uid, file)
+    return file
+  } catch (error) {
+    console.error("Error al registrar acceso al archivo:", error)
+    return file
+  }
+}
+
 export const deleteFile = async (file: any, user: any) => {
   try {
     if (file.isShared) {
       await deleteDoc(doc(db, "users", user.uid, "sharedWithMe", file.id))
+      // Eliminar de recientes si existe
+      await removeFromRecentFiles(user.uid, file.id)
       return SUCCESS_MESSAGES.DELETE
     }
 
     const fileRef = ref(storage, `files/${user.uid}/${file.name}`)
     await deleteObject(fileRef)
     await deleteDoc(doc(db, "users", user.uid, "files", file.id))
+    
+    // Eliminar de recientes
+    await removeFromRecentFiles(user.uid, file.id)
 
     const sharedByMeRef = collection(db, "users", user.uid, "sharedByMe")
     const q = query(sharedByMeRef, where("fileId", "==", file.id))
