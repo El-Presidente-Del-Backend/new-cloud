@@ -65,6 +65,9 @@ export default function DashboardPage() {
   const [sortBy, setSortBy] = useState("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
+  // Añade este estado para controlar el diálogo
+  const [showFolderDialog, setShowFolderDialog] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
@@ -435,7 +438,16 @@ export default function DashboardPage() {
           <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4">
             {/* Carpetas */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Carpetas</h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-700">Carpetas</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowFolderDialog(true)}
+                >
+                  <FolderPlus className="w-4 h-4" />
+                </Button>
+              </div>
               <nav className="space-y-1">
                 <Button
                   variant={selectedFolderId === null ? "secondary" : "ghost"}
@@ -775,6 +787,36 @@ export default function DashboardPage() {
           file={fileToView}
           onClose={handleCloseViewer}
         />
+      )}
+
+      {showFolderDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg w-80">
+            <h3 className="text-lg font-semibold mb-4">Nueva carpeta</h3>
+            <input
+              type="text"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Nombre de la carpeta"
+              className="w-full border border-gray-300 rounded p-2 mb-4"
+              autoFocus
+            />
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowFolderDialog(false)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => {
+                  handleCreateFolder();
+                  setShowFolderDialog(false);
+                }}
+                disabled={isCreatingFolder || !newFolderName.trim()}
+              >
+                {isCreatingFolder ? "Creando..." : "Crear"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
