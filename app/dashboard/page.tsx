@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo, useEffect } from "react"
+import { signOut } from "firebase/auth"
+import { auth, db } from "../firebase/firebaseConfig"
 import { onAuthStateChanged } from "firebase/auth"
-import { auth } from "../firebase/firebaseConfig"
-import { useRouter } from "next/navigation"
+import { doc, getDoc } from "firebase/firestore"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -18,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { toast } from "../hooks/use-toast"
 import {
   Cloud,
   Download,
@@ -29,68 +32,138 @@ import {
   ImageIcon,
   List,
   MoreHorizontal,
-  Plus,
   Search,
   Settings,
   Share2,
-  Star,
   Trash2,
-  Upload,
   Users,
   Video,
   LogOut,
+  FolderPlus,
 } from "lucide-react"
-
-interface FileItem {
-  id: string
-  name: string
-  type: "folder" | "file"
-  size?: string
-  modified: string
-  fileType?: "image" | "video" | "document" | "other"
-  starred?: boolean
-}
-
-const mockFiles: FileItem[] = [
-  { id: "1", name: "Documentos", type: "folder", modified: "Hace 2 días" },
-  { id: "2", name: "Fotos Vacaciones", type: "folder", modified: "Hace 1 semana" },
-  { id: "3", name: "Presentación.pptx", type: "file", size: "2.4 MB", modified: "Hace 3 horas", fileType: "document" },
-  {
-    id: "4",
-    name: "IMG_2024.jpg",
-    type: "file",
-    size: "1.8 MB",
-    modified: "Hace 1 día",
-    fileType: "image",
-    starred: true,
-  },
-  { id: "5", name: "Video_proyecto.mp4", type: "file", size: "45.2 MB", modified: "Hace 2 días", fileType: "video" },
-  { id: "6", name: "Informe_anual.pdf", type: "file", size: "3.1 MB", modified: "Hace 5 días", fileType: "document" },
-]
+import { useRouter } from "next/navigation"
+import { useFolders } from "../hooks/use-folders"
+import { useFiles, useSharedWithMe } from "../hooks/use-files"
+import { uploadFile, deleteFile } from "../services/file-service"
+import { createFolder, deleteFolder } from "../services/folder-service"
+import { shareFile } from "../services/share-service"
+import { formatFileSize, formatDate } from "../utils/file-utils"
+import { UploadForm } from "@/components/ui/upload-form"
+import { ShareModal } from "@/components/ui/share-modal"
+import { useStorageUsage } from "../hooks/use-storage-usage"
 
 export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
-  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
   const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [userData, setUserData] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [activeTab, setActiveTab] = useState<"my-files" | "shared">("my-files")
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState("")
+  const [selectedFileForShare, setSelectedFileForShare] = useState<any>(null)
+  const [showShareModal, setShowShareModal] = useState(false)
+  
+  // Estados para búsqueda y filtros - MOVER AQUÍ, ANTES DEL useEffect
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterType, setFilterType] = useState("all")
+  const [sortBy, setSortBy] = useState("name")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      if (!currentUser) {
-        router.push("/login") // Redirige si no está autenticado
-      } else {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
         setUser(currentUser)
-        setLoading(false)
+        
+        // Obtener datos adicionales del usuario desde Firestore
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid)
+          const userDoc = await getDoc(userDocRef)
+          
+          if (userDoc.exists()) {
+            setUserData(userDoc.data())
+          } else {
+            console.log("No se encontraron datos adicionales del usuario")
+          }
+        } catch (error) {
+          console.error("Error al obtener datos del usuario:", error)
+        }
+      } else {
+        // No hay usuario autenticado, redirigir al login
+        router.push("/login")
       }
+      setLoading(false)
     })
+    
     return () => unsubscribe()
   }, [router])
 
-  const getFileIcon = (item: FileItem) => {
-    if (item.type === "folder") return <Folder className="w-5 h-5 text-blue-500" />
+  // Hooks personalizados - MOVER AQUÍ, DESPUÉS DEL PRIMER useEffect
+  const { folders, loading: loadingFolders } = useFolders(user)
+  const { files, loading: loadingFiles } = useFiles(user, selectedFolderId)
+  const { sharedFiles, loading: loadingShared } = useSharedWithMe(user)
+  const { usedStorage, totalStorage, usedPercentage, loading: loadingStorage } = useStorageUsage(user)
 
-    switch (item.fileType) {
+  // Filtrado y ordenamiento de archivos
+  const filteredAndSortedFiles = useMemo(() => {
+    const currentFiles = activeTab === "my-files" ? files : sharedFiles
+    let result = [...currentFiles]
+
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase()
+      result = result.filter((file) => (file.name || file.fileName || "").toLowerCase().includes(searchLower))
+    }
+
+    if (filterType !== "all") {
+      result = result.filter((file) => file.type === filterType)
+    }
+
+    result.sort((a, b) => {
+      let valueA: any, valueB: any
+
+      if (sortBy === "name") {
+        valueA = (a.name || a.fileName || "").toLowerCase()
+        valueB = (b.name || b.fileName || "").toLowerCase()
+      } else if (sortBy === "size") {
+        valueA = a.size || 0
+        valueB = b.size || 0
+      } else if (sortBy === "createdAt") {
+        valueA = a.createdAt ? (a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt)) : new Date(0)
+        valueB = b.createdAt ? (b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt)) : new Date(0)
+      } else if (sortBy === "type") {
+        valueA = a.type || ""
+        valueB = b.type || ""
+      }
+
+      if (sortDirection === "asc") {
+        return valueA > valueB ? 1 : -1
+      } else {
+        return valueA < valueB ? 1 : -1
+      }
+    })
+
+    return result
+  }, [files, sharedFiles, activeTab, searchTerm, filterType, sortBy, sortDirection])
+
+  useEffect(() => {
+    console.log("Files:", files);
+    console.log("Shared files:", sharedFiles);
+    console.log("Filtered files:", filteredAndSortedFiles);
+  }, [files, sharedFiles, filteredAndSortedFiles]);
+
+  // Si está cargando o no hay usuario, mostrar indicador de carga
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Cargando...</div>
+  }
+
+  const displayName = userData?.name || user?.email
+
+  const getFileIcon = (file: any) => {
+    const fileType = file.type
+    switch (fileType) {
       case "image":
         return <ImageIcon className="w-5 h-5 text-green-500" />
       case "video":
@@ -106,18 +179,169 @@ export default function DashboardPage() {
     setSelectedFiles((prev) => (prev.includes(fileId) ? prev.filter((id) => id !== fileId) : [...prev, fileId]))
   }
 
-  const handleLogout = () => {
-    // Simular logout
-    router.push("/")
+  const handleLogout = async () => {
+    try {
+      await signOut(auth)
+      router.push("/")
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo cerrar la sesión",
+        variant: "destructive",
+      })
+    }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <span className="text-lg">Cargando...</span>
-      </div>
-    )
+  const handleUpload = async (file: File) => {
+    if (!file) return
+
+    setIsUploading(true)
+    try {
+      await uploadFile(file, user, selectedFolderId)
+      toast({
+        title: "Éxito",
+        description: "Archivo subido correctamente",
+      })
+    } catch (error) {
+      console.error("Error al subir archivo:", error)
+      toast({
+        title: "Error",
+        description: "Error al subir archivo",
+        variant: "destructive",
+      })
+    } finally {
+      setIsUploading(false)
+    }
   }
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) return
+
+    setIsCreatingFolder(true)
+    try {
+      await createFolder(newFolderName, user)
+      setNewFolderName("")
+      toast({
+        title: "Éxito",
+        description: "Carpeta creada correctamente",
+      })
+    } catch (error) {
+      console.error("Error al crear carpeta:", error)
+      toast({
+        title: "Error",
+        description: "Error al crear carpeta",
+        variant: "destructive",
+      })
+    } finally {
+      setIsCreatingFolder(false)
+    }
+  }
+
+  const handleDeleteFile = async (file: any) => {
+    if (window.confirm(`¿Estás seguro de que quieres eliminar "${file.name || file.fileName}"?`)) {
+      try {
+        await deleteFile(file, user)
+        toast({
+          title: "Éxito",
+          description: "Archivo eliminado correctamente",
+        })
+      } catch (error) {
+        console.error("Error al eliminar archivo:", error)
+        toast({
+          title: "Error",
+          description: "Error al eliminar archivo",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (window.confirm("¿Estás seguro de que quieres eliminar esta carpeta y todo su contenido?")) {
+      try {
+        await deleteFolder(folderId, user)
+        if (selectedFolderId === folderId) {
+          setSelectedFolderId(null)
+        }
+        toast({
+          title: "Éxito",
+          description: "Carpeta eliminada correctamente",
+        })
+      } catch (error) {
+        console.error("Error al eliminar carpeta:", error)
+        toast({
+          title: "Error",
+          description: "Error al eliminar carpeta",
+          variant: "destructive",
+        })
+      }
+    }
+  }
+
+  const handleShareFile = async (file: any, email: string, permission: string) => {
+    try {
+      await shareFile(file, email, permission, user, userData)
+      toast({
+        title: "Éxito",
+        description: `Archivo compartido con ${email}`,
+      })
+    } catch (error) {
+      console.error("Error al compartir archivo:", error)
+      toast({
+        title: "Error",
+        description: "Error al compartir archivo",
+        variant: "destructive",
+      })
+      throw error
+    }
+  }
+
+  const openShareModal = (file: any) => {
+    setSelectedFileForShare(file)
+    setShowShareModal(true)
+  }
+
+  const closeShareModal = () => {
+    setSelectedFileForShare(null)
+    setShowShareModal(false)
+  }
+
+  const handleDownloadFile = (file: any) => {
+    try {
+      // Obtener la URL del archivo
+      const fileUrl = file.url;
+      
+      if (!fileUrl) {
+        toast({
+          title: "Error",
+          description: "No se pudo obtener la URL del archivo",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Crear un elemento <a> temporal para la descarga
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = file.name || file.fileName || "archivo";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Éxito",
+        description: "Descarga iniciada",
+      });
+    } catch (error) {
+      console.error("Error al descargar archivo:", error);
+      toast({
+        title: "Error",
+        description: "No se pudo descargar el archivo",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -131,20 +355,22 @@ export default function DashboardPage() {
             </div>
             <div className="relative max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input placeholder="Buscar archivos y carpetas..." className="pl-10 w-80" />
+              <Input
+                placeholder="Buscar archivos y carpetas..."
+                className="pl-10 w-80"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <Button variant="outline" size="sm">
-              <Upload className="w-4 h-4 mr-2" />
-              Subir
-            </Button>
+            <span className="text-sm text-gray-600">Bienvenido, {displayName}</span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer">
                   <AvatarImage src="/placeholder.svg?height=32&width=32" />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -164,80 +390,199 @@ export default function DashboardPage() {
         </div>
       </header>
 
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 px-6">
+        <div className="flex space-x-8">
+          <button
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "my-files"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("my-files")}
+          >
+            <Home className="w-4 h-4 inline mr-2" />
+            Mis Archivos
+          </button>
+          <button
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === "shared"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+            onClick={() => setActiveTab("shared")}
+          >
+            <Users className="w-4 h-4 inline mr-2" />
+            Compartidos Conmigo
+          </button>
+        </div>
+      </div>
+
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4">
-          <nav className="space-y-2">
-            <Button variant="ghost" className="w-full justify-start bg-blue-50 text-blue-700">
-              <Home className="w-4 h-4 mr-3" />
-              Mis Archivos
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Users className="w-4 h-4 mr-3" />
-              Compartidos
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Star className="w-4 h-4 mr-3" />
-              Favoritos
-            </Button>
-            <Button variant="ghost" className="w-full justify-start">
-              <Trash2 className="w-4 h-4 mr-3" />
-              Papelera
-            </Button>
-          </nav>
-
-          <Separator className="my-6" />
-
-          {/* Storage Usage */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium text-gray-700">Almacenamiento</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Usado</span>
-                <span className="font-medium">2.4 GB de 15 GB</span>
-              </div>
-              <Progress value={16} className="h-2" />
+        {/* Sidebar - Solo mostrar en "Mis Archivos" */}
+        {activeTab === "my-files" && (
+          <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4">
+            {/* Carpetas */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Carpetas</h3>
+              <nav className="space-y-1">
+                <Button
+                  variant={selectedFolderId === null ? "secondary" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => setSelectedFolderId(null)}
+                >
+                  <Home className="w-4 h-4 mr-3" />
+                  Raíz
+                </Button>
+                {loadingFolders ? (
+                  <div className="text-sm text-gray-500">Cargando carpetas...</div>
+                ) : (
+                  folders.map((folder) => (
+                    <div key={folder.id} className="flex items-center group">
+                      <Button
+                        variant={selectedFolderId === folder.id ? "secondary" : "ghost"}
+                        className="flex-1 justify-start"
+                        onClick={() => setSelectedFolderId(folder.id)}
+                      >
+                        <Folder className="w-4 h-4 mr-3 text-blue-500" />
+                        <span className="truncate">{folder.name}</span>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFolder(folder.id)}>
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Eliminar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  ))
+                )}
+              </nav>
             </div>
-            <Button variant="outline" size="sm" className="w-full">
-              Obtener más espacio
-            </Button>
-          </div>
-        </aside>
+
+            {/* Crear Carpeta */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Crear Carpeta</h3>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Nombre de carpeta"
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === "Enter") {
+                      handleCreateFolder()
+                    }
+                  }}
+                />
+                <Button size="sm" onClick={handleCreateFolder} disabled={isCreatingFolder || !newFolderName.trim()}>
+                  <FolderPlus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+
+            <Separator className="my-6" />
+
+            {/* Storage Usage */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-gray-700">Almacenamiento</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Usado</span>
+                  <span className="font-medium">
+                    {loadingStorage ? "Calculando..." : `${formatFileSize(usedStorage)} de ${formatFileSize(totalStorage)}`}
+                  </span>
+                </div>
+                <Progress value={usedPercentage} className="h-2" />
+              </div>
+              <Button variant="outline" size="sm" className="w-full bg-transparent">
+                Obtener más espacio
+              </Button>
+            </div>
+          </aside>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 p-6">
-          {/* Breadcrumb */}
-          <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-            <Home className="w-4 h-4" />
-            <span>Mis Archivos</span>
-          </div>
-
-          {/* Action Bar */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo
-              </Button>
-              <Button variant="outline">
-                <Upload className="w-4 h-4 mr-2" />
-                Subir archivo
-              </Button>
-              {selectedFiles.length > 0 && (
+          {/* Breadcrumb - Solo para "Mis Archivos" */}
+          {activeTab === "my-files" && (
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+              <Home className="w-4 h-4" />
+              <span>Mis Archivos</span>
+              {selectedFolderId && (
                 <>
-                  <Button variant="outline" size="sm">
-                    <Share2 className="w-4 h-4 mr-2" />
-                    Compartir ({selectedFiles.length})
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <Download className="w-4 h-4 mr-2" />
-                    Descargar
-                  </Button>
+                  <span>/</span>
+                  <span>{folders.find((f) => f.id === selectedFolderId)?.name || "Carpeta"}</span>
                 </>
               )}
             </div>
+          )}
+
+          {/* Upload Section - Solo para "Mis Archivos" */}
+          {activeTab === "my-files" && (
+            <div className="mb-6">
+              <h2 className="text-lg font-semibold mb-4">Subir Archivo</h2>
+              <UploadForm onUpload={handleUpload} isUploading={isUploading} />
+            </div>
+          )}
+
+          {/* Action Bar */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold">
+                {activeTab === "my-files"
+                  ? selectedFolderId
+                    ? `Archivos en: ${folders.find((f) => f.id === selectedFolderId)?.name || "Carpeta"}`
+                    : "Archivos en Raíz"
+                  : "Archivos Compartidos Conmigo"}
+              </h2>
+
+              {/* Filtros */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="all">Todos los tipos</option>
+                  <option value="image">Imágenes</option>
+                  <option value="video">Videos</option>
+                  <option value="document">Documentos</option>
+                  <option value="other">Otros</option>
+                </select>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="text-sm border rounded px-2 py-1"
+                >
+                  <option value="name">Nombre</option>
+                  <option value="size">Tamaño</option>
+                  <option value="createdAt">Fecha</option>
+                  <option value="type">Tipo</option>
+                </select>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+                >
+                  {sortDirection === "asc" ? "↑" : "↓"}
+                </Button>
+              </div>
+            </div>
 
             <div className="flex items-center gap-2">
+              {selectedFiles.length > 0 && (
+                <Badge variant="secondary">
+                  {selectedFiles.length} seleccionado{selectedFiles.length > 1 ? "s" : ""}
+                </Badge>
+              )}
               <Button
                 variant={viewMode === "list" ? "default" : "outline"}
                 size="sm"
@@ -256,7 +601,23 @@ export default function DashboardPage() {
           </div>
 
           {/* File List/Grid */}
-          {viewMode === "list" ? (
+          {loadingFiles || loadingShared ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500">Cargando archivos...</div>
+            </div>
+          ) : filteredAndSortedFiles.length === 0 ? (
+            <div className="text-center py-8">
+              <div className="text-gray-500">
+                {searchTerm || filterType !== "all"
+                  ? "No se encontraron archivos con los filtros aplicados"
+                  : activeTab === "my-files"
+                    ? selectedFolderId
+                      ? "No hay archivos en esta carpeta"
+                      : "No hay archivos en la raíz"
+                    : "No hay archivos compartidos contigo"}
+              </div>
+            </div>
+          ) : viewMode === "list" ? (
             <div className="bg-white rounded-lg border border-gray-200">
               <div className="grid grid-cols-12 gap-4 p-4 border-b border-gray-100 text-sm font-medium text-gray-700">
                 <div className="col-span-6">Nombre</div>
@@ -265,7 +626,7 @@ export default function DashboardPage() {
                 <div className="col-span-1"></div>
               </div>
 
-              {mockFiles.map((file) => (
+              {filteredAndSortedFiles.map((file) => (
                 <div
                   key={file.id}
                   className={`grid grid-cols-12 gap-4 p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer ${
@@ -275,33 +636,35 @@ export default function DashboardPage() {
                 >
                   <div className="col-span-6 flex items-center gap-3">
                     {getFileIcon(file)}
-                    <span className="font-medium text-gray-900">{file.name}</span>
-                    {file.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
+                    <span className="font-medium text-gray-900">{file.name || file.fileName}</span>
+                    {file.isShared && (
+                      <Badge variant="outline" className="text-xs">
+                        Compartido
+                      </Badge>
+                    )}
                   </div>
-                  <div className="col-span-2 text-sm text-gray-600">{file.size || "—"}</div>
-                  <div className="col-span-3 text-sm text-gray-600">{file.modified}</div>
+                  <div className="col-span-2 text-sm text-gray-600">{file.size ? formatFileSize(file.size) : "—"}</div>
+                  <div className="col-span-3 text-sm text-gray-600">{formatDate(file.createdAt)}</div>
                   <div className="col-span-1">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
+                        <Button variant="ghost" size="sm" onClick={(e) => e.stopPropagation()}>
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownloadFile(file)}>
                           <Download className="w-4 h-4 mr-2" />
                           Descargar
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Compartir
-                        </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Star className="w-4 h-4 mr-2" />
-                          {file.starred ? "Quitar de favoritos" : "Agregar a favoritos"}
-                        </DropdownMenuItem>
+                        {!file.isShared && (
+                          <DropdownMenuItem onClick={() => openShareModal(file)}>
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Compartir
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteFile(file)}>
                           <Trash2 className="w-4 h-4 mr-2" />
                           Eliminar
                         </DropdownMenuItem>
@@ -313,7 +676,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {mockFiles.map((file) => (
+              {filteredAndSortedFiles.map((file) => (
                 <Card
                   key={file.id}
                   className={`cursor-pointer hover:shadow-md transition-shadow ${
@@ -325,11 +688,17 @@ export default function DashboardPage() {
                     <div className="flex flex-col items-center text-center space-y-2">
                       <div className="w-12 h-12 flex items-center justify-center">{getFileIcon(file)}</div>
                       <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900 truncate w-full">{file.name}</p>
-                        <p className="text-xs text-gray-500">{file.size || "Carpeta"}</p>
-                        <p className="text-xs text-gray-400">{file.modified}</p>
+                        <p className="text-sm font-medium text-gray-900 truncate w-full">
+                          {file.name || file.fileName}
+                        </p>
+                        <p className="text-xs text-gray-500">{file.size ? formatFileSize(file.size) : "—"}</p>
+                        <p className="text-xs text-gray-400">{formatDate(file.createdAt)}</p>
+                        {file.isShared && (
+                          <Badge variant="outline" className="text-xs">
+                            Compartido
+                          </Badge>
+                        )}
                       </div>
-                      {file.starred && <Star className="w-4 h-4 text-yellow-500 fill-current" />}
                     </div>
                   </CardContent>
                 </Card>
@@ -338,6 +707,14 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        file={selectedFileForShare}
+        isOpen={showShareModal}
+        onClose={closeShareModal}
+        onShare={handleShareFile}
+      />
     </div>
   )
 }

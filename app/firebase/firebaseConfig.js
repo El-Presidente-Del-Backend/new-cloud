@@ -6,13 +6,13 @@ import { getDatabase } from "firebase/database";
 
 // Usar variables de entorno o valores directos si no están disponibles
 const firebaseConfig = {
-    apiKey: "AIzaSyCi02vPJKYyfIUAyupjcQ1gMQRViBut5Xg",
-    authDomain: "cloud-d543e.firebaseapp.com",
-    databaseURL: "https://cloud-d543e-default-rtdb.firebaseio.com",
-    projectId: "cloud-d543e",
-    storageBucket: "cloud-d543e.firebasestorage.app",
-    messagingSenderId: "183269573739",
-    appId: "1:183269573739:web:d23ef3ec2209d1071add2e"
+  apiKey: "AIzaSyCi02vPJKYyfIUAyupjcQ1gMQRViBut5Xg",
+  authDomain: "cloud-d543e.firebaseapp.com",
+  databaseURL: "https://cloud-d543e-default-rtdb.firebaseio.com",
+  projectId: "cloud-d543e",
+  storageBucket: "cloud-d543e.firebasestorage.app",
+  messagingSenderId: "183269573739",
+  appId: "1:183269573739:web:27b0dd42e69928331add2e"
 };
 
 // Tipos de permisos para compartir archivos
