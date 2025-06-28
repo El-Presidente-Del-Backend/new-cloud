@@ -57,10 +57,8 @@ export default function DashboardPage() {
   const [selectedFileForShare, setSelectedFileForShare] = useState<any>(null)
   const [showShareModal, setShowShareModal] = useState(false)
   
-  // Añadir estado para el visor de archivos
   const [fileToView, setFileToView] = useState<any>(null)
   
-  // Estados para búsqueda y filtros - MOVER AQUÍ, ANTES DEL useEffect
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [sortBy, setSortBy] = useState("name")
@@ -103,7 +101,6 @@ export default function DashboardPage() {
   const { usedStorage, totalStorage, usedPercentage, loading: loadingStorage } = useStorageUsage(user)
   const { recentFiles, loading: loadingRecentFiles } = useRecentFiles(user)
 
-  // Función para manejar el clic en un archivo reciente
   const handleRecentFileClick = async (file: any) => {
     if (file.folderId) {
       setSelectedFolderId(file.folderId)
@@ -114,7 +111,6 @@ export default function DashboardPage() {
     setFileToView(file)
   }
 
-  // Función para manejar la apertura/descarga de un archivo
   const handleOpenFile = async (file: any) => {
     try {
       await accessFile(file, user)
@@ -134,7 +130,6 @@ export default function DashboardPage() {
     setFileToView(null)
   }
 
-  // Filtrado y ordenamiento de archivos
   const filteredAndSortedFiles = useMemo(() => {
     const currentFiles = activeTab === "my-files" ? files : sharedFiles
     let result = [...currentFiles]
@@ -335,10 +330,8 @@ export default function DashboardPage() {
 
   const handleDownloadFile = async (file: any) => {
     try {
-      // Registrar el acceso al archivo
       await accessFile(file, user)
       
-      // Crear un enlace temporal para la descarga
       const link = document.createElement("a")
       link.href = file.url
       link.download = file.name || "download"
@@ -359,7 +352,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 sm:gap-4">
@@ -380,14 +372,12 @@ export default function DashboardPage() {
             )}
           </div>
           
-          {/* Menú móvil */}
           {isMobile && (
             <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
               <Menu className="w-5 h-5" />
             </Button>
           )}
           
-          {/* Perfil de usuario (visible en desktop) */}
           {!isMobile && (
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-600">Bienvenido, {displayName}</span>
@@ -411,7 +401,6 @@ export default function DashboardPage() {
           )}
         </div>
         
-        {/* Barra de búsqueda móvil */}
         {isMobile && (
           <div className="mt-3">
             <div className="relative">
@@ -427,7 +416,6 @@ export default function DashboardPage() {
         )}
       </header>
 
-      {/* Menú móvil desplegable */}
       {isMobile && mobileMenuOpen && (
         <div className="bg-white border-b border-gray-200 px-4 py-3">
           <div className="flex flex-col space-y-3">
@@ -458,7 +446,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Tab Navigation */}
       <div className="bg-white border-b border-gray-200 px-6">
         <div className="flex space-x-8">
           <button
@@ -487,10 +474,8 @@ export default function DashboardPage() {
       </div>
 
       <div className="flex flex-col md:flex-row">
-        {/* Sidebar - Solo mostrar en desktop para "Mis Archivos" */}
         {!isMobile && activeTab === "my-files" && (
           <aside className="w-64 bg-white border-r border-gray-200 min-h-screen p-4">
-            {/* Carpetas */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium text-gray-700">Carpetas</h3>
@@ -543,7 +528,6 @@ export default function DashboardPage() {
               </nav>
             </div>
 
-            {/* Archivos recientes - Añadido a la sidebar */}
             <div className="mb-6">
               <h3 className="text-sm font-medium text-gray-700 mb-3">Archivos recientes</h3>
               {loadingRecentFiles ? (
@@ -573,7 +557,6 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Estadísticas de almacenamiento */}
             <div>
               <h3 className="text-sm font-medium text-gray-700 mb-3">Almacenamiento</h3>
               {loadingStorage ? (
@@ -598,9 +581,7 @@ export default function DashboardPage() {
           </aside>
         )}
 
-        {/* Main Content */}
         <main className="flex-1 p-4 sm:p-6">
-          {/* Breadcrumb - Solo para "Mis Archivos" */}
           {activeTab === "my-files" && (
             <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
               <Home className="w-4 h-4" />
@@ -614,7 +595,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Upload Section - Solo para "Mis Archivos" y adaptado para móvil */}
           {activeTab === "my-files" && !isMobile && (
             <div className="mb-6">
               <h2 className="text-lg font-semibold mb-4">Subir Archivo</h2>
@@ -622,7 +602,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Modal de subida para móvil */}
           {isMobile && isUploading && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
               <div className="bg-white p-6 rounded-lg w-full max-w-sm">
@@ -640,7 +619,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Action Bar adaptada para móvil */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3 sm:gap-0">
             <div>
               <h2 className="text-lg font-semibold">
@@ -653,7 +631,6 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {/* Filtros simplificados para móvil */}
               {!isMobile ? (
                 <div className="flex items-center gap-2">
                   <select
@@ -752,7 +729,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* File List/Grid */}
           {loadingFiles || loadingShared ? (
             <div className="text-center py-8">
               <div className="text-gray-500">Cargando archivos...</div>
@@ -778,12 +754,10 @@ export default function DashboardPage() {
                     selectedFiles.includes(file.id) ? "ring-2 ring-blue-500" : ""
                   }`}
                   onClick={(e) => {
-                    // Si se hace clic en el nombre o icono del archivo, abrirlo
                     if ((e.target as HTMLElement).closest('.file-preview')) {
                       e.stopPropagation()
                       handleOpenFile(file)
                     } else {
-                      // De lo contrario, seleccionarlo
                       toggleFileSelection(file.id)
                     }
                   }}
@@ -824,12 +798,10 @@ export default function DashboardPage() {
                     selectedFiles.includes(file.id) ? "bg-blue-50" : ""
                   }`}
                   onClick={(e) => {
-                    // Si se hace clic en el nombre del archivo, abrirlo
                     if ((e.target as HTMLElement).closest('.file-name-cell')) {
                       e.stopPropagation()
                       handleOpenFile(file)
                     } else {
-                      // De lo contrario, seleccionarlo
                       toggleFileSelection(file.id)
                     }
                   }}
@@ -888,7 +860,6 @@ export default function DashboardPage() {
         </main>
       </div>
 
-      {/* Share Modal */}
       <ShareModal
         file={selectedFileForShare}
         isOpen={showShareModal}
@@ -896,7 +867,6 @@ export default function DashboardPage() {
         onShare={handleShareFile}
       />
 
-      {/* Visor de archivos */}
       {fileToView && (
         <FileViewer 
           file={fileToView}
