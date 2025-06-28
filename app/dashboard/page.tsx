@@ -477,43 +477,57 @@ export default function DashboardPage() {
               </nav>
             </div>
 
-            {/* Crear Carpeta */}
+            {/* Archivos recientes - Añadido a la sidebar */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Crear Carpeta</h3>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nombre de carpeta"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === "Enter") {
-                      handleCreateFolder()
-                    }
-                  }}
-                />
-                <Button size="sm" onClick={handleCreateFolder} disabled={isCreatingFolder || !newFolderName.trim()}>
-                  <FolderPlus className="w-4 h-4" />
-                </Button>
-              </div>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Archivos recientes</h3>
+              {loadingRecentFiles ? (
+                <div className="text-sm text-gray-500">Cargando archivos recientes...</div>
+              ) : recentFiles.length === 0 ? (
+                <div className="text-sm text-gray-500">No hay archivos recientes</div>
+              ) : (
+                <div className="space-y-2">
+                  {recentFiles.slice(0, 5).map((file) => (
+                    <div 
+                      key={file.id} 
+                      className="flex items-center p-2 rounded-md hover:bg-gray-100 cursor-pointer group"
+                      onClick={() => handleRecentFileClick(file)}
+                    >
+                      <div className="mr-3 text-gray-500">
+                        {getFileIcon(file)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+                        <p className="text-xs text-gray-500 truncate">
+                          {formatFileSize(file.size)} • {new Date(file.accessedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            <Separator className="my-6" />
-
-            {/* Storage Usage */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-gray-700">Almacenamiento</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Usado</span>
-                  <span className="font-medium">
-                    {loadingStorage ? "Calculando..." : `${formatFileSize(usedStorage)} de ${formatFileSize(totalStorage)}`}
-                  </span>
-                </div>
-                <Progress value={usedPercentage} className="h-2" />
-              </div>
-              <Button variant="outline" size="sm" className="w-full bg-transparent">
-                Obtener más espacio
-              </Button>
+            {/* Estadísticas de almacenamiento */}
+            <div>
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Almacenamiento</h3>
+              {loadingStorage ? (
+                <div className="text-sm text-gray-500">Calculando...</div>
+              ) : (
+                <>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-600">{formatFileSize(usedStorage)} de {formatFileSize(totalStorage)}</span>
+                    <span className="text-gray-600">{usedPercentage.toFixed(1)}%</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full ${
+                        usedPercentage > 90 ? "bg-red-500" : usedPercentage > 70 ? "bg-yellow-500" : "bg-blue-500"
+                      }`}
+                      style={{ width: `${usedPercentage}%` }}
+                    ></div>
+                  </div>
+                </>
+              )}
             </div>
           </aside>
         )}
@@ -746,43 +760,6 @@ export default function DashboardPage() {
           )}
         </main>
       </div>
-
-      {/* Sección de archivos recientes - solo mostrar en la pestaña "my-files" */}
-      {activeTab === "my-files" && (
-        <div className="mb-8">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Archivos recientes</h3>
-          
-          {loadingRecentFiles ? (
-            <div className="text-sm text-gray-500">Cargando archivos recientes...</div>
-          ) : recentFiles.length === 0 ? (
-            <div className="text-sm text-gray-500">No hay archivos recientes</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-              {recentFiles.slice(0, 5).map((file) => (
-                <Card 
-                  key={file.id} 
-                  className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => handleRecentFileClick(file)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 flex items-center justify-center">
-                        {getFileIcon(file)}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {formatFileSize(file.size)} • {new Date(file.accessedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Share Modal */}
       <ShareModal
