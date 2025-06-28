@@ -42,24 +42,24 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 sm:pt-20 pb-10 sm:pb-16">
         <div className="text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900 mb-6">
+          <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-gray-900 mb-4 sm:mb-6">
             Tu almacenamiento en la nube
             <span className="text-blue-600 block">seguro y confiable</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
+          <p className="text-lg sm:text-xl text-gray-600 mb-6 sm:mb-8 max-w-3xl mx-auto">
             Guarda, sincroniza y comparte tus archivos desde cualquier lugar. Con CloudStore tienes acceso a tus
             documentos las 24 horas del día.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register">
-              <Button size="lg" className="text-lg px-8 py-3">
+            <Link href="/register" className="w-full sm:w-auto">
+              <Button size="lg" className="text-lg px-8 py-3 w-full sm:w-auto">
                 Comenzar Gratis
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
             </Link>
-            <Button variant="outline" size="lg" className="text-lg px-8 py-3">
+            <Button variant="outline" size="lg" className="text-lg px-8 py-3 w-full sm:w-auto">
               Ver Demo
             </Button>
           </div>
@@ -74,16 +74,16 @@ export default function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 bg-white">
+      <section id="features" className="py-12 sm:py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">¿Por qué elegir CloudStore?</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Ofrecemos las mejores características para mantener tus archivos seguros y accesibles
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Características principales</h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Diseñado para ofrecerte la mejor experiencia en almacenamiento en la nube.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             <Card className="p-6 hover:shadow-lg transition-shadow">
               <CardContent className="p-0">
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
@@ -154,14 +154,16 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-gray-50">
+      <section id="pricing" className="py-12 sm:py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Planes que se adaptan a ti</h2>
-            <p className="text-xl text-gray-600">Desde uso personal hasta empresarial, tenemos el plan perfecto</p>
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">Planes y precios</h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              Elige el plan que mejor se adapte a tus necesidades.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             <Card className="p-8 hover:shadow-lg transition-shadow">
               <CardContent className="p-0">
                 <h3 className="text-2xl font-bold mb-2">Básico</h3>
