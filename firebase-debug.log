@@ -1,0 +1,61 @@
+[debug] [2025-06-28T04:33:30.306Z] ----------------------------------------------------------------------
+[debug] [2025-06-28T04:33:30.311Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js init hosting
+[debug] [2025-06-28T04:33:30.312Z] CLI Version:   14.9.0
+[debug] [2025-06-28T04:33:30.313Z] Platform:      win32
+[debug] [2025-06-28T04:33:30.313Z] Node Version:  v22.14.0
+[debug] [2025-06-28T04:33:30.313Z] Time:          Sat Jun 28 2025 00:33:30 GMT-0400 (hora estándar de Chile)
+[debug] [2025-06-28T04:33:30.314Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-06-28T04:33:30.733Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-06-28T04:33:30.734Z] > authorizing via signed-in user (cbravojelvez@gmail.com)
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  C:\Users\clxbr\OneDrive\Escritorio\cloud\new-cloud
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] but for now we'll just set up a default project.
+[info] 
+[debug] [2025-06-28T04:33:36.794Z] Using project from CLI flag: cloud-d543e
+[debug] [2025-06-28T04:33:36.798Z] Checked if tokens are valid: true, expires at: 1751088613502
+[debug] [2025-06-28T04:33:36.798Z] Checked if tokens are valid: true, expires at: 1751088613502
+[debug] [2025-06-28T04:33:36.801Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e [none]
+[debug] [2025-06-28T04:33:37.293Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e 200
+[debug] [2025-06-28T04:33:37.294Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e {"projectId":"cloud-d543e","projectNumber":"183269573739","displayName":"cloud","name":"projects/cloud-d543e","resources":{"hostingSite":"cloud-d543e","realtimeDatabaseInstance":"cloud-d543e-default-rtdb"},"state":"ACTIVE","etag":"1_a1ec4bce-c01e-4a58-b704-7567dd0da0bc"}
+[info] i  Using project cloud-d543e (cloud) 
+[info] 
+=== Hosting Setup
+[debug] [2025-06-28T04:33:37.304Z] Checked if tokens are valid: true, expires at: 1751088613502
+[debug] [2025-06-28T04:33:37.304Z] Checked if tokens are valid: true, expires at: 1751088613502
+[debug] [2025-06-28T04:33:37.305Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e [none]
+[debug] [2025-06-28T04:33:37.692Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e 200
+[debug] [2025-06-28T04:33:37.692Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/cloud-d543e {"projectId":"cloud-d543e","projectNumber":"183269573739","displayName":"cloud","name":"projects/cloud-d543e","resources":{"hostingSite":"cloud-d543e","realtimeDatabaseInstance":"cloud-d543e-default-rtdb"},"state":"ACTIVE","etag":"1_a1ec4bce-c01e-4a58-b704-7567dd0da0bc"}
+[info] 
+[info] Your public directory is the folder (relative to your project directory) that
+[info] will contain Hosting assets to be uploaded with firebase deploy. If you
+[info] have a build process for your assets, use your build's output directory.
+[info] 
+[debug] [2025-06-28T04:33:48.968Z] Error: EPERM: operation not permitted, open 'C:\404.html'
+    at Object.writeFileSync (node:fs:2426:20)
+    at Object.createFileSync (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\node_modules\fs-extra\lib\ensure\file.js:63:6)
+    at Config.writeProjectFile (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\config.js:160:12)
+    at Config.askWriteProjectFile (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\config.js:208:14)
+    at async Object.doSetup (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\init\features\hosting\index.js:153:13)
+    at async init (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\init\index.js:57:13)
+    at async Command.initAction [as actionFn] (C:\Users\clxbr\AppData\Roaming\npm\node_modules\firebase-tools\lib\commands\init.js:198:5)
+[error] 
+[error] Error: An unexpected error has occurred.
